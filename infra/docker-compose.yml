@@ -11,7 +11,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - claimpilot_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U claimpilot -d claimpilot_db"]
       interval: 5s
@@ -38,7 +38,7 @@ services:
       - "6333:6333"
       - "6334:6334"
     volumes:
-      - qdrant_data:/qdrant/storage
+      - claimpilot_qdrant_data:/qdrant/storage
 
   minio:
     image: minio/minio:latest
@@ -54,7 +54,7 @@ services:
       - minio_data:/data
 
 volumes:
-  postgres_data:
+  claimpilot_postgres_data:
   redis_data:
-  qdrant_data:
+  claimpilot_qdrant_data:
   minio_data:

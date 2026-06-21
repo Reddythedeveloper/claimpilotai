@@ -1,0 +1,4 @@
+claim_id,payer,amount,denial_reason,procedure_code,diagnosis_code,member_plan,notes
+CLM-100245,Aetna,8200.45,"Missing authorization",99285,J18.9,"PPO Gold","Resubmission requested after denial."
+CLM-100246,Cigna,450.00,"Coding inconsistency",99214,E11.9,"HMO Silver","Code 99214 requires higher severity modifier."
+CLM-100247,UHC,12500.00,"Not medically necessary",47562,K80.20,"PPO Platinum","Gallbladder removal disputed."
