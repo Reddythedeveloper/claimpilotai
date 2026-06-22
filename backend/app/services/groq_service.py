@@ -17,12 +17,12 @@ logger = logging.getLogger(__name__)
 T = TypeVar('T', bound=BaseModel)
 
 class GroqService:
-    def __init__(self, model_name: str = None, temperature: float = 0.0):
-        self.api_key = os.getenv("GROQ_API_KEY")
+    def __init__(self, api_key: str = None, default_model: str = "llama-3.1-8b-instant", temperature: float = 0.0):
+        self.api_key = api_key or os.getenv("GROQ_API_KEY")
         if not self.api_key:
             raise ValueError("GROQ_API_KEY environment variable is missing")
             
-        self.model_name = model_name or os.getenv("GROQ_MODEL_PRIMARY", "llama3-70b-8192")
+        self.model_name = os.getenv("GROQ_MODEL_PRIMARY", default_model)
         self.temperature = temperature
         
         self.llm = ChatGroq(
@@ -90,6 +90,6 @@ class GroqService:
             logger.error(f"Error invoking Groq: {str(e)}")
             raise
 
-# Singleton instances
-primary_llm_service = GroqService()
-critic_llm_service = GroqService(model_name=os.getenv("GROQ_MODEL_CRITIC", "llama3-8b-8192"))
+# Singleton instances for convenience
+primary_llm_service = GroqService(default_model=os.getenv("GROQ_MODEL_PRIMARY", "llama-3.1-8b-instant"))
+critic_llm_service = GroqService(default_model=os.getenv("GROQ_MODEL_CRITIC", "llama-3.1-8b-instant"))

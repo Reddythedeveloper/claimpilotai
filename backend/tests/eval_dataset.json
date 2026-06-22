@@ -1,0 +1,28 @@
+[
+  {
+    "case_id": "EVAL-001",
+    "case_data": {
+      "payer": "Aetna",
+      "amount": 8200.45,
+      "denial_reason": "Missing authorization",
+      "procedure_code": "99285",
+      "diagnosis_code": "J18.9",
+      "notes": "Emergency room admission for severe pneumonia."
+    },
+    "expected_decision": "Approved",
+    "expected_evidence_keywords": ["emergency", "prior authorization"]
+  },
+  {
+    "case_id": "EVAL-002",
+    "case_data": {
+      "payer": "Cigna",
+      "amount": 1250.00,
+      "denial_reason": "Experimental procedure",
+      "procedure_code": "00000",
+      "diagnosis_code": "Z00.00",
+      "notes": "Routine checkup with unknown custom procedure code."
+    },
+    "expected_decision": "Denied",
+    "expected_evidence_keywords": []
+  }
+]
