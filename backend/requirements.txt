@@ -24,3 +24,4 @@ sentence-transformers>=3.0.1
 pandas>=2.2.2
 langchain-community>=0.2.1
 langchain-text-splitters>=0.2.1
+langchain-groq>=0.1.4
