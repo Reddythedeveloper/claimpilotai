@@ -1,16 +1,70 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Activity, FileText, CheckCircle, AlertTriangle, Clock } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Activity, FileText, CheckCircle, AlertTriangle, Clock, X, RefreshCw } from "lucide-react";
 import Link from "next/link";
 
+interface Case {
+  claim_id: string;
+  payer: string;
+  amount: number;
+  status: string;
+  risk?: number;
+}
+
 export default function Dashboard() {
-  const [cases, setCases] = useState([
-    { id: "CLM-100245", payer: "Aetna", amount: 8200.45, status: "pending", risk: 0.8 },
-    { id: "CLM-100246", payer: "Cigna", amount: 450.00, status: "resolved", risk: 0.2 },
-    { id: "CLM-100247", payer: "UHC", amount: 12500.00, status: "error", risk: 0.9 },
-  ]);
+  const [cases, setCases] = useState<Case[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const fetchCases = async () => {
+    try {
+      const res = await fetch("http://localhost:8000/cases/");
+      const data = await res.json();
+      setCases(data.cases);
+    } catch (e) {
+      console.error("Failed to fetch cases:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCases();
+  }, []);
+
+  const handleCreateCase = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    const formData = new FormData(e.currentTarget);
+    
+    const newCasePayload = {
+      payer: formData.get("payer") as string,
+      amount: parseFloat(formData.get("amount") as string),
+      denial_reason: formData.get("denial_reason") as string,
+      procedure_code: "UNKNOWN",
+      diagnosis_code: "UNKNOWN",
+      member_plan: "Unknown",
+      notes: "Manually entered case",
+      attachments: []
+    };
+
+    try {
+      await fetch("http://localhost:8000/cases/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newCasePayload),
+      });
+      await fetchCases();
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error("Failed to create case:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <main className="min-h-screen p-8 md:p-16 max-w-7xl mx-auto">
@@ -25,7 +79,10 @@ export default function Dashboard() {
           </h1>
           <p className="text-gray-400 mt-2">Revenue Cycle Intelligence Platform</p>
         </div>
-        <button className="glass-button px-6 py-3 rounded-full font-semibold flex items-center gap-2">
+        <button 
+          onClick={() => setIsModalOpen(true)}
+          className="glass-button px-6 py-3 rounded-full font-semibold flex items-center gap-2"
+        >
           <Activity size={20} />
           New Case
         </button>
@@ -37,21 +94,23 @@ export default function Dashboard() {
             <FileText size={24} />
             <h3 className="font-semibold">Active Cases</h3>
           </div>
-          <p className="text-3xl font-bold">1</p>
+          <p className="text-3xl font-bold">{cases.filter(c => c.status === 'pending' || c.status === 'processing').length}</p>
         </motion.div>
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="glass-panel p-6">
           <div className="flex items-center gap-4 text-purple-400 mb-2">
             <AlertTriangle size={24} />
             <h3 className="font-semibold">Revenue at Risk</h3>
           </div>
-          <p className="text-3xl font-bold">$20,700</p>
+          <p className="text-3xl font-bold">
+            ${cases.filter(c => c.status !== 'resolved').reduce((acc, c) => acc + c.amount, 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+          </p>
         </motion.div>
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }} className="glass-panel p-6">
           <div className="flex items-center gap-4 text-green-400 mb-2">
             <CheckCircle size={24} />
             <h3 className="font-semibold">Resolved Today</h3>
           </div>
-          <p className="text-3xl font-bold">1</p>
+          <p className="text-3xl font-bold">{cases.filter(c => c.status === 'resolved').length}</p>
         </motion.div>
       </div>
 
@@ -59,9 +118,10 @@ export default function Dashboard() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.4 }}
-        className="text-2xl font-semibold mb-6"
+        className="text-2xl font-semibold mb-6 flex justify-between items-center"
       >
-        Queue Tracker
+        <span>Queue Tracker</span>
+        <button onClick={fetchCases} className="text-sm text-gray-400 hover:text-white flex items-center gap-1"><RefreshCw size={14}/> Refresh</button>
       </motion.h2>
 
       <motion.div 
@@ -81,25 +141,29 @@ export default function Dashboard() {
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
-            {cases.map((c) => (
-              <tr key={c.id} className="hover:bg-white/5 transition-colors">
-                <td className="p-4 font-mono text-sm text-blue-300">{c.id}</td>
+            {loading ? (
+              <tr><td colSpan={5} className="p-8 text-center text-gray-500"><RefreshCw className="animate-spin inline-block mr-2" size={16}/>Loading cases...</td></tr>
+            ) : cases.length === 0 ? (
+              <tr><td colSpan={5} className="p-8 text-center text-gray-500">No cases found. Create one to begin.</td></tr>
+            ) : cases.map((c) => (
+              <tr key={c.claim_id} className="hover:bg-white/5 transition-colors">
+                <td className="p-4 font-mono text-sm text-blue-300">{c.claim_id}</td>
                 <td className="p-4">{c.payer}</td>
                 <td className="p-4 font-mono">${c.amount.toFixed(2)}</td>
                 <td className="p-4">
                   <span className={`px-3 py-1 rounded-full text-xs font-medium flex items-center w-max gap-1
                     ${c.status === 'resolved' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : ''}
-                    ${c.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : ''}
+                    ${(c.status === 'pending' || c.status === 'processing') ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : ''}
                     ${c.status === 'error' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : ''}
                   `}>
-                    {c.status === 'pending' && <Clock size={12} />}
+                    {(c.status === 'pending' || c.status === 'processing') && <Clock size={12} />}
                     {c.status === 'resolved' && <CheckCircle size={12} />}
                     {c.status === 'error' && <AlertTriangle size={12} />}
                     {c.status.charAt(0).toUpperCase() + c.status.slice(1)}
                   </span>
                 </td>
                 <td className="p-4 text-right">
-                  <Link href={`/cases/${c.id}`} className="text-sm text-blue-400 hover:text-blue-300 transition-colors">
+                  <Link href={`/cases/${c.claim_id}`} className="text-sm text-blue-400 hover:text-blue-300 transition-colors">
                     Review Case &rarr;
                   </Link>
                 </td>
@@ -108,6 +172,75 @@ export default function Dashboard() {
           </tbody>
         </table>
       </motion.div>
+
+      <AnimatePresence>
+        {isModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="glass-panel p-8 w-full max-w-md relative"
+            >
+              <button 
+                onClick={() => setIsModalOpen(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-white"
+              >
+                <X size={24} />
+              </button>
+              
+              <h2 className="text-2xl font-bold mb-6 text-white">Create New Case</h2>
+              
+              <form onSubmit={handleCreateCase} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Payer</label>
+                  <input 
+                    name="payer" 
+                    required 
+                    className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500" 
+                    placeholder="e.g. Aetna, Cigna" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Billed Amount ($)</label>
+                  <input 
+                    name="amount" 
+                    type="number" 
+                    step="0.01" 
+                    required 
+                    className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500" 
+                    placeholder="0.00" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Denial Reason</label>
+                  <input 
+                    name="denial_reason" 
+                    required 
+                    className="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500" 
+                    placeholder="e.g. Missing authorization" 
+                  />
+                </div>
+                
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  className={`w-full glass-button mt-6 py-3 rounded-lg font-semibold text-white flex justify-center items-center ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {isSubmitting ? <RefreshCw className="animate-spin mr-2" size={18} /> : null}
+                  {isSubmitting ? 'Creating...' : 'Create Case'}
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </main>
   );
 }
